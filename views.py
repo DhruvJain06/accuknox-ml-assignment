@@ -323,37 +323,35 @@ def identify_species(request):
             env_path = os.path.join(settings.BASE_DIR, '.env')
             if os.path.exists(env_path):
                 with open(env_path, 'r') as f:
-                    for line in f:
-                        if line.startswith('GEMINI_API_KEY='):
-                            gemini_api_key = line.split('=', 1)[1].strip()
-                            break
-            
-        genai.configure(api_key=gemini_api_key)
-        model = genai.GenerativeModel('gemini-flash-latest')
-        
-        prompt = """You are an expert marine biologist. Identify the marine algae species from this image.
-Respond ONLY with a valid JSON document in this exact structure:
-{
-  "species_name": "Scientific Name of algae",
-  "common_name": "Common Name if any",
-  "phylum": "Phylum name",
-  "class": "Class Name",
-  "description": "Short description of the algae",
-  "confidence": 95,
-  "features": ["feature 1", "feature 2"],
-  "habitat": "Typical habitat",
-  "biochemical": {
-     "lipid_content": 15.5,
-     "carbohydrate_content": 25.0,
-     "protein_content": 18.0,
-     "moisture_content": 10.0,
-     "ash_content": 5.0,
-     "growth_rate_g_L_day": 0.45,
-     "co2_absorption_g_g": 1.25,
      "estimated_biofuel_yield_L_ha": 6500.0
   }
 }
 Provide scientific estimates based on your knowledge if exact data for this specific species is rare."""
+                    if tn:
+                        SpeciesStateOccurrence.objects.create(
+                            species=sps,
+                            state=tn,
+                            temp_min=24, temp_max=32, salinity=34, ph_min=7.8, ph_max=8.2,
+                            light_intensity=450,
+                            biofuel_yield_L_per_ha=bc.get('estimated_biofuel_yield_L_ha', 5000)
+                        )
+
+
+                best_occ = sps.state_occurrences.order_by('-biofuel_yield_L_per_ha').first()
+                data['db_species'] = {
+                    'id': sps.id,
+                    'name': sps.name,
+                    'best_yield': format(best_occ.biofuel_yield_L_per_ha, '.1f') if best_occ else 'N/A',
+                    'lipid': sps.lipid_content,
+                    'state_count': sps.state_occurrences.count(),
+                    'is_new': is_new
+                }
+            
+                return Response(data)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return Response({'error': str(e)}, status=500)
         response = model.generate_content([prompt, img])
         text = response.text.replace('```json', '').replace('```', '').strip()
         data = json.loads(text)
@@ -398,6 +396,7 @@ Provide scientific estimates based on your knowledge if exact data for this spec
                     biofuel_yield_L_per_ha=bc.get('estimated_biofuel_yield_L_ha', 5000)
                 )
 
+<<<<<<< HEAD
         best_occ = sps.state_occurrences.order_by('-biofuel_yield_L_per_ha').first()
         data['db_species'] = {
             'id': sps.id,
@@ -413,3 +412,7 @@ Provide scientific estimates based on your knowledge if exact data for this spec
         import traceback
         traceback.print_exc()
         return Response({'error': str(e)}, status=500)
+=======
+
+
+>>>>>>> 2d4ed02c65cd651357927201d80874acb939dfe8
